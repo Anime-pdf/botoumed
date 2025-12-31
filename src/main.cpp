@@ -2,6 +2,8 @@
 #include <dpp/dpp.h>
 #include <logger/adapter.h>
 
+#include <config/registry.h>
+
 int main() {
     std::string token = "lol, github prohibited to push the code with token, thanks ig";
 

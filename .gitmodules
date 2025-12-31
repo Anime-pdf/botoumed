@@ -1,0 +1,3 @@
+[submodule "libs/config"]
+	path = libs/config
+	url = https://github.com/Anime-pdf/config-lib

@@ -79,6 +79,19 @@ function(add_dependency VAR FRIENDLY_NAME REQUIRED)
     endif()
 endfunction()
 
+function(add_dependency_submodule VAR FRIENDLY_NAME REQUIRED)
+    find_package(${VAR} QUIET)
+    if(NOT ${VAR}_FOUND)
+        add_subdirectory(libs/${VAR})
+        if(TARGET ${VAR})
+            target_link_libraries(${PROJECT_NAME} ${VAR})
+            set(${VAR}_FOUND TRUE)
+            set(${VAR}_BUNDLED TRUE)
+        endif()
+    endif()
+    show_dependency_status(${FRIENDLY_NAME} ${VAR} ${REQUIRED})
+endfunction()
+
 ### Project
 
 project(botoumed VERSION 1.0)
@@ -88,6 +101,7 @@ file(GLOB_RECURSE SOURCES src/*.cpp src/*.h src/*.hpp)
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 add_dependency(DPP "DPP" REQUIRED)
+add_dependency_submodule(config "Config" REQUIRED)
 
 file(COPY ${COPY_FILES} DESTINATION .)
 
