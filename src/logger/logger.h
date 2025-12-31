@@ -48,22 +48,6 @@ public:
             return;
         std::cout << std::format("{}[{}] {}: {}", LogLevelColor(Level), current_date_time(), LogLevelStr(Level), std::format(Fmt, std::forward<TArgs>(Args)...)) << "\n" << std::flush;
     }
-
-    template<LogLevel Level = LogLevel::Debug, typename... TArgs>
-    void Log(std::string String) const
-    {
-        if(Level < m_Level)
-            return;
-        std::cout << std::format("{}[{}] {}: {}", LogLevelColor(Level), current_date_time(), LogLevelStr(Level), String) << "\n" << std::flush;
-    }
-
-    template<typename... TArgs>
-    void Log(LogLevel Level, std::string String) const
-    {
-        if(Level < m_Level)
-            return;
-        std::cout << std::format("{}[{}] {}: {}", LogLevelColor(Level), current_date_time(), LogLevelStr(Level), String) << "\n" << std::flush;
-    }
 };
 
 extern Logger g_Logger;

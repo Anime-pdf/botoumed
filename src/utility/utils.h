@@ -16,6 +16,4 @@ inline std::string trim(std::string s);
 
 std::string current_date_time();
 
-dpp::task<bool> MemberHasRealMessages(dpp::cluster* pCluster, dpp::snowflake guildId, dpp::snowflake memberId);
-
 #endif // UTILITY_UTILS_H
