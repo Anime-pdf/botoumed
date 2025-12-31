@@ -13,7 +13,7 @@ RUN cmake -B build -S . \
 FROM alpine:latest
 
 WORKDIR /app
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates opus
 COPY --from=builder /build/build/discord_bot /app/discord_bot
 
 RUN adduser -D botuser
