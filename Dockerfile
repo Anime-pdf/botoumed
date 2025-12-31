@@ -1,6 +1,11 @@
 FROM gcc:13 AS builder
 
 WORKDIR /build
+
+RUN apt-get update && apt-get install -y \
+    cmake \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY . .
 RUN cmake -B build -S . \
     && cmake --build build --config Release
