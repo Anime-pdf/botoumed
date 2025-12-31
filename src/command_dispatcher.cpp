@@ -208,7 +208,7 @@ dpp::task<> CCommandDispatcher::ConfigSetCommand(const dpp::slashcommand_t &even
 
     std::string msg;
 
-    if (const auto result = Config().Set(var_name, var_value); result.has_value()) {
+    if (const auto result = Config().Set(var_name, var_value); !result.has_value()) {
         msg = std::format("Can't set `{}`: {}", var_name, result.error());
     } else {
         msg = std::format("`{}` was set to `{}`", var_name, var_value);
