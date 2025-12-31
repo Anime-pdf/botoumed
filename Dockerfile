@@ -28,6 +28,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 
+COPY --from=builder /build/libs/dpp/linux/lib64/libdpp.so* /usr/lib/
+RUN ldconfig
+
 COPY --from=builder /usr/bin/botoumed /usr/bin
 RUN chmod +x /usr/bin/botoumed
 
