@@ -40,6 +40,7 @@ int main() {
     }
 
     dpp::cluster bot(token.value(), dpp::i_all_intents);
+    bot.cache_policy.user_policy = dpp::cp_none;
     CCommandDispatcher::SetCluster(&bot);
 
     g_Logger.SetLogLevel(LogLevel::Debug);
