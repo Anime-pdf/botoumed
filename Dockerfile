@@ -4,6 +4,8 @@ WORKDIR /build
 
 RUN apt-get update && apt-get install -y \
     cmake \
+    libopus-dev \
+    zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY . .
@@ -14,9 +16,9 @@ FROM alpine:latest
 
 WORKDIR /app
 RUN apk add --no-cache ca-certificates opus
-COPY --from=builder /build/build/discord_bot /app/discord_bot
+COPY --from=builder /build/build/botoumed /app/botoumed
 
 RUN adduser -D botuser
 USER botuser
 
-CMD ["./discord_bot"]
+CMD ["./botoumed"]
