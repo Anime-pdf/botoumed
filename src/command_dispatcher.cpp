@@ -14,11 +14,15 @@ std::map<std::string, CCommandDispatcher::CommandCallback> CCommandDispatcher::m
     {"config_list", ConfigListCommand},
     {"config_get", ConfigGetCommand},
     {"config_set", ConfigSetCommand},
-    {"tag_check", [](const dpp::slashcommand_t &)-> dpp::task<> { return OnTagCheckTick(dpp::timer()); }},
+    {"tag_check", TagCheckCommand},
 };
 
 void CCommandDispatcher::SetNotFoundCallback(CCommandDispatcher::CommandCallback Callback) {
     ms_NotFoundCallback = std::move(Callback);
+}
+
+bool HasRole(const dpp::guild_member& member, const dpp::snowflake role_id) {
+    return std::ranges::find(member.get_roles(), role_id) != member.get_roles().end();
 }
 
 dpp::task<> CCommandDispatcher::DispatchCommand(const dpp::slashcommand_t &event) {
@@ -96,30 +100,59 @@ dpp::task<> CCommandDispatcher::OnTagCheckTick(const dpp::timer &timer_handle) {
         g_Logger.Log<LogLevel::Error>("Guild with `{}` doesn't exist", guild_id.str());
         co_return;
     }
-    for (const auto &member: guild->members | std::views::values) {
+
+    auto members = guild->members | std::views::values;
+
+    co_await Cluster()->co_message_create(dpp::message(channel_id, "Starting tag check"));
+    int added = 0, removed = 0, total = 0;
+
+    for (const auto &member: members) {
         if (member.get_user()->is_bot())
             continue;
 
         const auto user = member.get_user();
         const bool has_role = std::ranges::find(member.get_roles(), role_id) != member.get_roles().end();
 
+        if (CorrectGuild(user->primary_guild) && has_role)
+            total++;
+
         if (CorrectGuild(user->primary_guild) && !has_role) {
-            co_await Cluster()->co_guild_member_add_role(guild_id, user->id, role_id);
+            Cluster()->guild_member_add_role(guild_id, user->id, role_id); added++;
             if (send_add_message) {
-                add_message = ReplaceAll(add_message, "{mention}", user->get_mention());
-                co_await Cluster()->co_message_create(dpp::message(channel_id, add_message));
+                auto add_message_f = ReplaceAll(add_message, "{mention}", member.get_mention());
+                add_message_f = ReplaceAll(add_message_f, "{username}", user->username);
+                Cluster()->message_create(dpp::message(channel_id, add_message_f));
             }
+            co_await Cluster()->co_sleep(5);
         } else if (!CorrectGuild(user->primary_guild) && has_role) {
-            co_await Cluster()->co_guild_member_delete_role(guild_id, user->id, role_id);
+            Cluster()->guild_member_delete_role(guild_id, user->id, role_id); removed++;
             if (send_del_message) {
-                del_message = ReplaceAll(del_message, "{mention}", user->get_mention());
-                co_await Cluster()->co_message_create(dpp::message(channel_id, del_message));
+                auto del_message_f = ReplaceAll(del_message, "{mention}", member.get_mention());
+                del_message_f = ReplaceAll(del_message_f, "{username}", user->username);
+                Cluster()->message_create(dpp::message(channel_id, del_message_f));
             }
+            co_await Cluster()->co_sleep(5);
         }
     }
+
+    total += added;
+    co_await Cluster()->co_message_create(dpp::message(channel_id, std::format("Tag check finished. Added: **{}**, Removed: **{}**. New total tag members: **{}**", added, removed, total)));
+}
+
+dpp::task<> CCommandDispatcher::TagCheckCommand(const dpp::slashcommand_t &event) {
+    if (!HasRole(event.command.member, Config().Get<std::string>("admin_role").value_or("0"))) {
+        co_await event.co_reply("No permission");
+        co_return;
+    }
+    co_await OnTagCheckTick(dpp::timer());
 }
 
 dpp::task<> CCommandDispatcher::ConfigListCommand(const dpp::slashcommand_t &event) {
+    if (!HasRole(event.command.member, Config().Get<std::string>("admin_role").value_or("0"))) {
+        co_await event.co_reply("No permission");
+        co_return;
+    }
+
     const auto vars = Config().ListAll();
 
     std::string msg = std::format("`{}` config vars:\n", vars.size());
@@ -132,6 +165,11 @@ dpp::task<> CCommandDispatcher::ConfigListCommand(const dpp::slashcommand_t &eve
 }
 
 dpp::task<> CCommandDispatcher::ConfigGetCommand(const dpp::slashcommand_t &event) {
+    if (!HasRole(event.command.member, Config().Get<std::string>("admin_role").value_or("0"))) {
+        co_await event.co_reply("No permission");
+        co_return;
+    }
+
     auto var_name = std::get<std::string>(event.get_parameter("name"));
 
     auto var = Config().GetInfo(var_name);
@@ -145,6 +183,11 @@ dpp::task<> CCommandDispatcher::ConfigGetCommand(const dpp::slashcommand_t &even
 }
 
 dpp::task<> CCommandDispatcher::ConfigSetCommand(const dpp::slashcommand_t &event) {
+    if (!HasRole(event.command.member, Config().Get<std::string>("admin_role").value_or("0"))) {
+        co_await event.co_reply("No permission");
+        co_return;
+    }
+
     auto var_name = std::get<std::string>(event.get_parameter("name"));
     auto var_value = std::get<std::string>(event.get_parameter("value"));
 

@@ -10,6 +10,7 @@ class CCommandDispatcher final {
     static CommandCallback ms_NotFoundCallback;
     static dpp::cluster *ms_pCluster;
 
+    static dpp::task<> TagCheckCommand(const dpp::slashcommand_t& event);
     static dpp::task<> ConfigListCommand(const dpp::slashcommand_t& event);
     static dpp::task<> ConfigGetCommand(const dpp::slashcommand_t& event);
     static dpp::task<> ConfigSetCommand(const dpp::slashcommand_t& event);
