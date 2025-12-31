@@ -1,24 +1,34 @@
-FROM gcc:14.3 AS builder
+FROM debian:trixie-slim AS builder
 
-WORKDIR /build
-
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    g++-14 \
     cmake \
+    ninja-build \
     libopus-dev \
     zlib1g-dev \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /build
 COPY . .
-RUN cmake -B build -S . \
+
+ENV CC=gcc-14
+ENV CXX=g++-14
+RUN cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -B build . \
     && cmake --build build --config Release
 
-FROM alpine:latest
+RUN mv build/botoumed /usr/bin/botoumed
 
-WORKDIR /app
-RUN apk add --no-cache ca-certificates opus
-COPY --from=builder /build/build/botoumed /app/botoumed
+FROM debian:trixie-slim
 
-RUN adduser -D botuser
-USER botuser
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libopus0 \
+    zlib1g \
+    libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
 
-CMD ["./botoumed"]
+COPY --from=builder /usr/bin/botoumed /usr/bin
+RUN chmod +x /usr/bin/botoumed
+
+CMD ["botoumed"]
