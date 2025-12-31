@@ -1,4 +1,4 @@
-FROM gcc:13 AS builder
+FROM gcc:14.3 AS builder
 
 WORKDIR /build
 
@@ -10,7 +10,7 @@ COPY . .
 RUN cmake -B build -S . \
     && cmake --build build --config Release
 
-FROM alpine:3.20
+FROM alpine:latest
 
 WORKDIR /app
 RUN apk add --no-cache ca-certificates
