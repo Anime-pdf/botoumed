@@ -28,7 +28,7 @@ public:
     static void SetNotFoundCallback(CommandCallback Callback);
 
     static dpp::task<> DispatchCommand(const dpp::slashcommand_t& event);
-    static dpp::task<> OnTagCheckTick(const dpp::timer& timer_handle);
+    static dpp::task<> OnTagCheckTick();
 };
 
 #endif // COMMAND_DISPATCHER_H

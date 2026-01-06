@@ -45,7 +45,7 @@ std::string ReplaceAll(std::string str, const std::string &from, const std::stri
     return str;
 }
 
-dpp::task<> CCommandDispatcher::OnTagCheckTick(const dpp::timer &timer_handle) {
+dpp::task<> CCommandDispatcher::OnTagCheckTick() {
     dpp::snowflake guild_id;
     dpp::snowflake role_id;
     bool send_add_message = false;
@@ -101,21 +101,6 @@ dpp::task<> CCommandDispatcher::OnTagCheckTick(const dpp::timer &timer_handle) {
         co_return;
     }
 
-    // update cache?
-    for (auto shard : Cluster()->get_shards() | std::views::values) {
-        json chunk_req = json({{"op", dpp::ft_request_guild_members}, {"d", {{"guild_id",std::to_string(guild_id)},{"query",""},{"limit",0}}}});
-        if (shard->intents & dpp::i_guild_presences) {
-            chunk_req["d"]["presences"] = true;
-        }
-        std::string msg;
-        if (shard->protocol == dpp::ws_json)
-            msg = chunk_req.dump(-1, ' ', false, json::error_handler_t::replace);
-        else {
-            dpp::etf_parser parser;
-            msg = parser.build(chunk_req);
-        }
-        shard->queue_message(msg);
-    }
     auto members = guild->members | std::views::values;
 
     co_await Cluster()->co_message_create(dpp::message(channel_id, "Starting tag check"));
@@ -134,19 +119,19 @@ dpp::task<> CCommandDispatcher::OnTagCheckTick(const dpp::timer &timer_handle) {
         if (CorrectGuild(user->primary_guild) && !has_role) {
             Cluster()->guild_member_add_role(guild_id, user->id, role_id); added++;
             if (send_add_message) {
-                auto add_message_f = ReplaceAll(add_message, "{mention}", member.get_mention());
+                auto add_message_f = ReplaceAll(add_message, "{mention}", user->get_mention());
                 add_message_f = ReplaceAll(add_message_f, "{username}", user->username);
                 Cluster()->message_create(dpp::message(channel_id, add_message_f));
             }
-            co_await Cluster()->co_sleep(5);
+            co_await Cluster()->co_sleep(1);
         } else if (!CorrectGuild(user->primary_guild) && has_role) {
             Cluster()->guild_member_delete_role(guild_id, user->id, role_id); removed++;
             if (send_del_message) {
-                auto del_message_f = ReplaceAll(del_message, "{mention}", member.get_mention());
+                auto del_message_f = ReplaceAll(del_message, "{mention}", user->get_mention());
                 del_message_f = ReplaceAll(del_message_f, "{username}", user->username);
                 Cluster()->message_create(dpp::message(channel_id, del_message_f));
             }
-            co_await Cluster()->co_sleep(5);
+            co_await Cluster()->co_sleep(1);
         }
     }
 
@@ -159,7 +144,7 @@ dpp::task<> CCommandDispatcher::TagCheckCommand(const dpp::slashcommand_t &event
         co_await event.co_reply("No permission");
         co_return;
     }
-    co_await OnTagCheckTick(dpp::timer());
+    co_await OnTagCheckTick();
 }
 
 dpp::task<> CCommandDispatcher::ConfigListCommand(const dpp::slashcommand_t &event) {

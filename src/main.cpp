@@ -47,11 +47,22 @@ int main() {
     bot.on_log(DppLogAdapter::Logger());
     bot.on_slashcommand(CCommandDispatcher::DispatchCommand);
 
-    bot.on_ready([&bot](const dpp::ready_t& event) {
+    bot.on_ready([&bot, &result](const dpp::ready_t& event) {
         g_Logger.Log<LogLevel::Info>("Started as {}. Guild: {}", bot.me.format_username(), event.guild_count);
         g_Logger.Log<LogLevel::Info>("Config vars: {}", Config().ListAll().size());
 
-        bot.start_timer(CCommandDispatcher::OnTagCheckTick, Config().Get<int>("tag_check_interval").value_or(10) * 60UL);
+
+        bot.start_timer([&bot, &result](unsigned long long i) -> dpp::task<> {
+            co_await CCommandDispatcher::OnTagCheckTick();
+            co_await bot.co_sleep(Config().Get<int>("tag_check_interval").value_or(10) * 60UL);
+
+            result = Config().Save();
+            if (!result.has_value()) {
+                g_Logger.Log<LogLevel::Critical>("Can't save config file");
+            }
+
+            std::exit(0);
+        }, 10);
 
         if (dpp::run_once<struct reg>()) {
             auto config_list = dpp::slashcommand("config_list", "manage config vars", bot.me.id);
@@ -63,10 +74,8 @@ int main() {
             config_set.add_option(dpp::command_option(dpp::co_string, "name", "variable name", true));
             config_set.add_option(dpp::command_option(dpp::co_string, "value", "new value", true));
 
-            auto tag_check = dpp::slashcommand("tag_check", "manually start check", bot.me.id);
-
             // register
-            const auto commands = { config_list, config_get, config_set, tag_check };
+            const auto commands = { config_list, config_get, config_set };
             bot.global_bulk_command_create(commands);
         }
     });
