@@ -5,6 +5,31 @@
 #include <config/registry.h>
 #include <config/validator/builder.h>
 
+dpp::task<> LifeCycle(dpp::cluster* bot) {
+    g_Logger.Log<LogLevel::Info>("Bot started. Waiting 10s for cache warmup...");
+    co_await bot->co_sleep(10);
+
+    g_Logger.Log<LogLevel::Info>("Starting Tag Check...");
+    try {
+        co_await CCommandDispatcher::OnTagCheckTick();
+    } catch (const std::exception& e) {
+        g_Logger.Log<LogLevel::Error>("Error during check: {}", e.what());
+    }
+
+    int interval_min = Config().Get<int>("tag_check_interval").value_or(10);
+    g_Logger.Log<LogLevel::Info>("Work done. Sleeping for {} minutes before restart...", interval_min);
+
+    co_await bot->co_sleep(interval_min * 60);
+
+    auto result = Config().Save();
+    if (!result.has_value()) {
+        g_Logger.Log<LogLevel::Critical>("Can't save config file");
+    }
+
+    g_Logger.Log<LogLevel::Info>("Exiting process to clear cache.");
+    std::exit(0);
+}
+
 int main() {
     // common
     CONFIG_STRING_READONLY("token", "", Validators::StringNonEmpty());
@@ -52,17 +77,10 @@ int main() {
         g_Logger.Log<LogLevel::Info>("Config vars: {}", Config().ListAll().size());
 
 
-        bot.start_timer([&bot, &result](unsigned long long i) -> dpp::task<> {
-            co_await CCommandDispatcher::OnTagCheckTick();
-            co_await bot.co_sleep(Config().Get<int>("tag_check_interval").value_or(10) * 60UL);
-
-            result = Config().Save();
-            if (!result.has_value()) {
-                g_Logger.Log<LogLevel::Critical>("Can't save config file");
-            }
-
-            std::exit(0);
-        }, 10);
+        if (dpp::run_once<struct Bootstrapper>()) {
+            std::thread t([&bot] {LifeCycle(&bot).sync_wait();});
+            t.detach();
+        }
 
         if (dpp::run_once<struct reg>()) {
             auto config_list = dpp::slashcommand("config_list", "manage config vars", bot.me.id);
