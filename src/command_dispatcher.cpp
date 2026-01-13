@@ -21,7 +21,7 @@ void CCommandDispatcher::SetNotFoundCallback(CCommandDispatcher::CommandCallback
     ms_NotFoundCallback = std::move(Callback);
 }
 
-bool HasRole(const dpp::guild_member& member, const dpp::snowflake role_id) {
+bool HasRole(const dpp::guild_member &member, const dpp::snowflake role_id) {
     return std::ranges::find(member.get_roles(), role_id) != member.get_roles().end();
 }
 
@@ -52,8 +52,7 @@ dpp::task<> CCommandDispatcher::OnTagCheckTick() {
     bool send_del_message = false;
     dpp::snowflake channel_id;
     std::string add_message;
-    std::string del_message;
-    {
+    std::string del_message; {
         auto guild_id_str = Config().Get<std::string>("guild_id");
         if (!guild_id_str.has_value()) {
             g_Logger.Log<LogLevel::Error>("`guild_id` config var not found");
@@ -103,7 +102,7 @@ dpp::task<> CCommandDispatcher::OnTagCheckTick() {
 
     auto members = guild->members | std::views::values;
 
-    co_await Cluster()->co_message_create(dpp::message(channel_id, "Starting tag check"));
+    // co_await Cluster()->co_message_create(dpp::message(channel_id, "Starting tag check"));
     int added = 0, removed = 0, total = 0;
 
     for (const auto &member: members) {
@@ -117,7 +116,8 @@ dpp::task<> CCommandDispatcher::OnTagCheckTick() {
             total++;
 
         if (CorrectGuild(user->primary_guild) && !has_role) {
-            Cluster()->guild_member_add_role(guild_id, user->id, role_id); added++;
+            Cluster()->guild_member_add_role(guild_id, user->id, role_id);
+            added++;
             if (send_add_message) {
                 auto add_message_f = ReplaceAll(add_message, "{mention}", user->get_mention());
                 add_message_f = ReplaceAll(add_message_f, "{username}", user->username);
@@ -125,7 +125,8 @@ dpp::task<> CCommandDispatcher::OnTagCheckTick() {
             }
             co_await Cluster()->co_sleep(1);
         } else if (!CorrectGuild(user->primary_guild) && has_role) {
-            Cluster()->guild_member_delete_role(guild_id, user->id, role_id); removed++;
+            Cluster()->guild_member_delete_role(guild_id, user->id, role_id);
+            removed++;
             if (send_del_message) {
                 auto del_message_f = ReplaceAll(del_message, "{mention}", user->get_mention());
                 del_message_f = ReplaceAll(del_message_f, "{username}", user->username);
@@ -136,7 +137,10 @@ dpp::task<> CCommandDispatcher::OnTagCheckTick() {
     }
 
     total += added;
-    co_await Cluster()->co_message_create(dpp::message(channel_id, std::format("Tag check finished. Added: **{}**, Removed: **{}**. New total tag members: **{}**", added, removed, total)));
+    if (added > 0 || removed > 0)
+        co_await Cluster()->co_message_create(dpp::message(
+            channel_id, std::format("Tag check finished. Added: **{}**, Removed: **{}**. New total tag members: **{}**",
+                                    added, removed, total)));
 }
 
 dpp::task<> CCommandDispatcher::TagCheckCommand(const dpp::slashcommand_t &event) {
